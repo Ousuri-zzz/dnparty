@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dragon Nest Party Manager</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --primary: #FF6B6B;
+            --secondary: #4ECDC4;
+            --accent: #FFE66D;
+            --dark: #292F36;
+            --light: #F7FFF7;
+            
+            /* Class colors */
+            --swordsman: #FFA500;
+            --mercenary: #FF0000;
+            --bowmaster: #FF0000;
+            --acrobat: #FF0000;
+            --force-user: #FFA500;
+            --elemental-lord: #FFA500;
+            --paladin: #1E90FF;
+            --priest: #32CD32;
+        }
+        
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: var(--light);
+            color: var(--dark);
+            margin: 0;
+            padding: 20px;
+            background-image: linear-gradient(to bottom right, #f5f7fa, #e4e8f0);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .party-controls {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+        
+        .party-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .party-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            border: 2px solid var(--secondary);
+            transition: transform 0.3s;
+        }
+        
+        .party-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .party-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .party-card h2 {
+            color: var(--secondary);
+            margin: 0;
+            font-size: 1.3em;
+        }
+        
+        .party-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .add-member-btn, .delete-party {
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em;
+            border: none;
+        }
+        
+        .add-member-btn {
+            background-color: var(--primary);
+            color: white;
+        }
+        
+        .delete-party {
+            background-color: #ff5252;
+            color: white;
+        }
+        
+        .member-list {
+            margin-top: 10px;
+        }
+        
+        .member-item {
+            background-color: var(--light);
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .member-info {
+            flex-grow: 1;
+        }
+        
+        .member-name {
+            font-weight: bold;
+            color: var(--dark);
+        }
+        
+        .character-name {
+            color: var(--primary);
+            font-style: italic;
+        }
+        
+        /* Class colors */
+        .character-class.Swordsman {
+            background-color: var(--swordsman);
+            color: white;
+        }
+        
+        .character-class.Mercenary {
+            background-color: var(--mercenary);
+            color: white;
+        }
+        
+        .character-class.Bowmaster {
+            background-color: var(--bowmaster);
+            color: white;
+        }
+        
+        .character-class.Acrobat {
+            background-color: var(--acrobat);
+            color: white;
+        }
+        
+        .character-class.Force-User {
+            background-color: var(--force-user);
+            color: white;
+        }
+        
+        .character-class.Elemental-Lord {
+            background-color: var(--elemental-lord);
+            color: white;
+        }
+        
+        .character-class.Paladin {
+            background-color: var(--paladin);
+            color: white;
+        }
+        
+        .character-class.Priest {
+            background-color: var(--priest);
+            color: white;
+        }
+        
+        .character-class {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 25px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: black;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--dark);
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-family: inherit;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+            font-size: 1em;
+            width: 100%;
+        }
+        
+        button:hover {
+            background-color: #ff5252;
+        }
+        
+        .button-small {
+            padding: 5px 10px;
+            font-size: 0.8em;
+            width: auto;
+        }
+        
+        .add-party-btn {
+            background-color: var(--secondary);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2em;
+            color: var(--secondary);
+        }
+        
+        @media (max-width: 768px) {
+            .party-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>Dragon Nest Party Manager</h1>
+        
+        <div class="party-controls">
+            <button class="add-party-btn" onclick="showAddPartyModal()">+ สร้างปาร์ตี้ใหม่</button>
+        </div>
+        
+        <div class="party-section" id="party-container">
+            <div class="loading">กำลังโหลดข้อมูล...</div>
+        </div>
+    </div>
+
+    <!-- Add Party Modal -->
+    <div id="addPartyModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideAddPartyModal()">&times;</span>
+            <h2>สร้างปาร์ตี้ใหม่</h2>
+            <div class="form-group">
+                <label for="new-party-name">ชื่อปาร์ตี้</label>
+                <input type="text" id="new-party-name" placeholder="เช่น ปาร์ตี้ลับ Black Dragon">
+            </div>
+            <div class="form-group">
+                <label for="new-party-size">จำนวนสมาชิก</label>
+                <select id="new-party-size">
+                    <option value="4">4 คน</option>
+                    <option value="8">8 คน</option>
+                    <option value="12">12 คน</option>
+                    <option value="custom">กำหนดเอง</option>
+                </select>
+            </div>
+            <div class="form-group" id="custom-size-group" style="display: none;">
+                <label for="custom-party-size">จำนวนสมาชิกที่ต้องการ</label>
+                <input type="number" id="custom-party-size" min="1" value="4">
+            </div>
+            <button onclick="addNewParty()">สร้างปาร์ตี้</button>
+        </div>
+    </div>
+
+    <!-- Add Member Modal -->
+    <div id="addMemberModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideAddMemberModal()">&times;</span>
+            <h2>เพิ่มสมาชิก</h2>
+            <div class="form-group">
+                <label for="player-name">ชื่อผู้เล่น</label>
+                <input type="text" id="player-name" placeholder="ชื่อใน Discord">
+            </div>
+            <div class="form-group">
+                <label for="character-name">ชื่อตัวละคร</label>
+                <input type="text" id="character-name" placeholder="ชื่อตัวละครในเกม">
+            </div>
+            <div class="form-group">
+                <label for="character-class">อาชีพ</label>
+                <select id="character-class">
+                    <option value="">เลือกอาชีพ</option>
+                    <option value="Swordsman">Swordsman</option>
+                    <option value="Mercenary">Mercenary</option>
+                    <option value="Bowmaster">Bowmaster</option>
+                    <option value="Acrobat">Acrobat</option>
+                    <option value="Force User">Force User</option>
+                    <option value="Elemental Lord">Elemental Lord</option>
+                    <option value="Paladin">Paladin</option>
+                    <option value="Priest">Priest</option>
+                </select>
+            </div>
+            <input type="hidden" id="selected-party-id">
+            <button onclick="addMember()">เพิ่มสมาชิก</button>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAxOBDrsgrFe71BJDZfN87nr4QRAvBDsHA",
+            authDomain: "dragonnestparty.firebaseapp.com",
+            databaseURL: "https://dragonnestparty-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "dragonnestparty",
+            storageBucket: "dragonnestparty.appspot.com",
+            messagingSenderId: "681237786699",
+            appId: "1:681237786699:web:48b280710a3780e35fddce",
+            measurementId: "G-XNNQQV4H4Y"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const partiesRef = database.ref('parties');
+
+        // Global parties data
+        let parties = {};
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup party size selector
+            document.getElementById('new-party-size').addEventListener('change', function() {
+                const customSizeGroup = document.getElementById('custom-size-group');
+                customSizeGroup.style.display = this.value === 'custom' ? 'block' : 'none';
+            });
+
+            // Load parties data
+            partiesRef.on('value', (snapshot) => {
+                parties = snapshot.val() || {};
+                renderParties();
+            });
+        });
+
+        // Render all parties
+        function renderParties() {
+            const partyContainer = document.getElementById('party-container');
+            
+            if (!parties || Object.keys(parties).length === 0) {
+                partyContainer.innerHTML = '<p>ยังไม่มีปาร์ตี้ที่สร้างขึ้น</p>';
+                return;
+            }
+            
+            let html = '';
+            
+            Object.keys(parties).forEach((partyId) => {
+                const party = parties[partyId];
+                if (!party) return;
+                
+                const memberCount = party.members ? Object.keys(party.members).length : 0;
+                
+                html += `
+                <div class="party-card" data-party-id="${partyId}">
+                    <div class="party-header">
+                        <h2>${party.name} (${memberCount}/${party.maxMembers})</h2>
+                        <div class="party-actions">
+                            <button class="add-member-btn" onclick="showAddMemberModal('${partyId}')">+ สมาชิก</button>
+                            <button class="delete-party" onclick="deleteParty('${partyId}')">ลบ</button>
+                        </div>
+                    </div>
+                    <div class="member-list">
+                        ${renderMembers(party.members)}
+                    </div>
+                </div>
+                `;
+            });
+            
+            partyContainer.innerHTML = html || '<p>ยังไม่มีปาร์ตี้ที่สร้างขึ้น</p>';
+        }
+        
+        // Render members list for a party
+        function renderMembers(members) {
+            if (!members || Object.keys(members).length === 0) {
+                return '<p>ยังไม่มีสมาชิกในปาร์ตี้นี้</p>';
+            }
+            
+            return Object.keys(members).map((memberId) => {
+                const member = members[memberId];
+                if (!member) return '';
+                
+                const classForCss = member.characterClass.replace(/ /g, '-');
+                
+                return `
+                <div class="member-item">
+                    <div class="member-info">
+                        <div class="member-name">${member.playerName}</div>
+                        <span class="character-name">${member.characterName}</span>
+                        <span class="character-class ${classForCss}">${member.characterClass}</span>
+                    </div>
+                    <button class="button-small" onclick="removeMember('${memberId}', '${member.characterName}')">ลบ</button>
+                </div>
+                `;
+            }).join('');
+        }
+        
+        // Show add party modal
+        function showAddPartyModal() {
+            document.getElementById('addPartyModal').style.display = 'block';
+            document.getElementById('new-party-name').focus();
+        }
+        
+        // Hide add party modal
+        function hideAddPartyModal() {
+            document.getElementById('addPartyModal').style.display = 'none';
+        }
+        
+        // Show add member modal
+        function showAddMemberModal(partyId) {
+            document.getElementById('addMemberModal').style.display = 'block';
+            document.getElementById('selected-party-id').value = partyId;
+            document.getElementById('player-name').focus();
+        }
+        
+        // Hide add member modal
+        function hideAddMemberModal() {
+            document.getElementById('addMemberModal').style.display = 'none';
+        }
+        
+        // Add new party
+        function addNewParty() {
+            const partyName = document.getElementById('new-party-name').value.trim();
+            const partySize = document.getElementById('new-party-size').value;
+            let maxMembers = 4;
+            
+            if (partySize === 'custom') {
+                maxMembers = parseInt(document.getElementById('custom-party-size').value) || 4;
+            } else {
+                maxMembers = parseInt(partySize);
+            }
+            
+            if (!partyName) {
+                alert('กรุณากรอกชื่อปาร์ตี้');
+                return;
+            }
+            
+            const newParty = {
+                name: partyName,
+                maxMembers: maxMembers,
+                members: {}
+            };
+            
+            // Add new party to Firebase
+            const newPartyRef = partiesRef.push();
+            newPartyRef.set(newParty)
+                .then(() => {
+                    hideAddPartyModal();
+                    // Clear form
+                    document.getElementById('new-party-name').value = '';
+                    document.getElementById('new-party-size').value = '4';
+                    document.getElementById('custom-size-group').style.display = 'none';
+                })
+                .catch((error) => {
+                    console.error("Error adding party: ", error);
+                    alert('เกิดข้อผิดพลาดในการสร้างปาร์ตี้');
+                });
+        }
+        
+        // Add new member to a party
+        function addMember() {
+            const playerName = document.getElementById('player-name').value.trim();
+            const characterName = document.getElementById('character-name').value.trim();
+            const characterClass = document.getElementById('character-class').value;
+            const partyId = document.getElementById('selected-party-id').value;
+            
+            if (!playerName || !characterName || !characterClass || !partyId) {
+                alert('กรุณากรอกข้อมูลให้ครบทุกช่อง!');
+                return;
+            }
+            
+            const partyRef = database.ref(`parties/${partyId}`);
+            
+            // Check if party exists and has space
+            partyRef.once('value').then((snapshot) => {
+                const party = snapshot.val();
+                
+                if (!party) {
+                    alert('ไม่พบปาร์ตี้นี้');
+                    return;
+                }
+                
+                const memberCount = party.members ? Object.keys(party.members).length : 0;
+                
+                if (memberCount >= party.maxMembers) {
+                    alert('ปาร์ตี้นี้เต็มแล้ว!');
+                    return;
+                }
+                
+                // Add new member
+                const newMember = {
+                    playerName,
+                    characterName,
+                    characterClass
+                };
+                
+                const membersRef = partyRef.child('members');
+                membersRef.push(newMember)
+                    .then(() => {
+                        hideAddMemberModal();
+                        // Clear form
+                        document.getElementById('player-name').value = '';
+                        document.getElementById('character-name').value = '';
+                        document.getElementById('character-class').value = '';
+                    })
+                    .catch((error) => {
+                        console.error("Error adding member: ", error);
+                        alert('เกิดข้อผิดพลาดในการเพิ่มสมาชิก');
+                    });
+            });
+        }
+        
+        // Remove member from a party
+        function removeMember(memberId, characterName) {
+            if (!confirm(`ต้องการลบ ${characterName} ออกจากปาร์ตี้ใช่ไหม?`)) return;
+            
+            // Find which party this member belongs to
+            Object.keys(parties).forEach((partyId) => {
+                const party = parties[partyId];
+                if (!party || !party.members || !party.members[memberId]) return;
+                
+                // Remove member from Firebase
+                database.ref(`parties/${partyId}/members/${memberId}`).remove()
+                    .catch((error) => {
+                        console.error("Error removing member: ", error);
+                        alert('เกิดข้อผิดพลาดในการลบสมาชิก');
+                    });
+            });
+        }
+        
+        // Delete a party
+        function deleteParty(partyId) {
+            if (!confirm('ต้องการลบปาร์ตี้นี้ใช่ไหม? การกระทำนี้ไม่สามารถยกเลิกได้!')) return;
+            
+            // Remove party from Firebase
+            database.ref(`parties/${partyId}`).remove()
+                .catch((error) => {
+                    console.error("Error deleting party: ", error);
+                    alert('เกิดข้อผิดพลาดในการลบปาร์ตี้');
+                });
+        }
+    </script>
+</body>
+</html>
